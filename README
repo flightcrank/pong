@@ -1,4 +1,16 @@
-PONG
+# PONG
 
 This is a recreation of the classic pong video game. Imlimented in the C
 programming language, using SDL libary to display graphics on the screen.
+
+To compile using the GCC compiler (must have the SDL libraries installed) and
+available in the operating systems PATH environment variable
+`gcc pong.c -lSDL -o pong`
+
+it should compile fine on Linux, Windows and Mac.  
+This has been tested on Linux and compiles without error.
+
+## Controls
+* use the keyboard arrow keys to move up and down.
+* space bar starts a game from the menu screen.
+* ESC exits the program.
