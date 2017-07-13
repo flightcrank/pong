@@ -1,7 +1,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "SDL/SDL.h"
+#include <SDL/SDL.h>
 
 typedef struct ball_s {
 
@@ -295,33 +295,62 @@ static void move_paddle_ai() {
 	}
 }
 
-static void move_paddle(int d) {
+static void move_paddle_r(int d) {
 
-	// if the down arrow is pressed move paddle down
-	if (d == 0) {
-		
-		if(paddle[1].y >= screen->h - paddle[1].h) {
-		
-			paddle[1].y = screen->h - paddle[1].h;
-		
-		} else { 
-		
-			paddle[1].y += 5;
-		}
-	}
-	
-	// if the up arrow is pressed move paddle up
-	if (d == 1) {
+    // if the down arrow is pressed move paddle down
+    if (d == 0) {
 
-		if(paddle[1].y <= 0) {
-		
-			paddle[1].y = 0;
+        if (paddle[1].y >= screen->h - paddle[1].h) {
 
-		} else {
-		
-			paddle[1].y -= 5;
-		}
-	}
+            paddle[1].y = screen->h - paddle[1].h;
+
+        } else {
+
+            paddle[1].y += 5;
+        }
+    }
+
+    // if the up arrow is pressed move paddle up
+    if (d == 1) {
+
+        if (paddle[1].y <= 0) {
+
+            paddle[1].y = 0;
+
+        } else {
+
+            paddle[1].y -= 5;
+        }
+    }
+}
+
+static void move_paddle_l(int d) {
+
+    // if the down arrow is pressed move paddle down
+    if (d == 0) {
+
+        if (paddle[0].y >= screen->h - paddle[0].h) {
+
+            paddle[0].y = screen->h - paddle[0].h;
+
+        } else {
+
+            paddle[0].y += 5;
+        }
+    }
+
+    // if the up arrow is pressed move paddle up
+    if (d == 1) {
+
+        if (paddle[0].y <= 0) {
+
+            paddle[0].y = 0;
+
+        } else {
+
+            paddle[0].y -= 5;
+        }
+    }
 }
 
 static void draw_game_over(int p) { 
@@ -606,6 +635,7 @@ int main() {
 
 	int quit = 0;
 	int state = 0;
+	int game_mode;
 	Uint8 *keystate = 0;
 	Uint32 next_game_tick = SDL_GetTicks();
 	int sleep = 0;
@@ -625,84 +655,157 @@ int main() {
 			quit = 1;
 		}
 		
-		if (keystate[SDLK_DOWN]) {
-			move_paddle(0);
-		}
-
-		if (keystate[SDLK_UP]) {
-			move_paddle(1);
-		}
-		
 		//draw the background
 		draw_background();
 
-		//display main menu
-		if (state == 0 ) {
-		
-			if (keystate[SDLK_SPACE]) {
-				state = 1;
-			}
-		
-			//draw menu 
-			draw_menu();
-		
-		//display gameover
-		} else if (state == 2) {
-		
-			if (keystate[SDLK_SPACE]) {
-				state = 0;
-				//delay for a little bit so the space bar press dosnt get triggered twice
-				//while the main menu is showing
-            			SDL_Delay(500);
-			}
+        /* state:
+         * 0 wait to select game mode
+         * 1 - game over
+         * 2 - game with computer
+         * 3 - 2 players on local computer
+         * 4 - 2 players on network
+        */
 
-			if (r == 1) {
+        switch (state) {
+            case 0:
 
-				//if player 1 is AI if player 1 was human display the return value of r not 3
-				draw_game_over(3);
+                if (keystate[SDLK_1]) {
+                    state = 2;
+                    game_mode = 2;
+                }
 
-			} else {
-			
-				//display gameover
-				draw_game_over(r);
-			}
-				
-		//display the game
-		} else if (state == 1){
-			
-			//check score
-			r = check_score();
-			
-			if (r == 1) {
-				
-				state = 2;	
+                if (keystate[SDLK_2]) {
+                    state = 3;
+                    game_mode = 3;
+                }
 
-			} else if (r == 2){
-			
-				state = 2;	
-			}
+                if (keystate[SDLK_3]) {
+                    state = 4;
+                    game_mode = 4;
+                }
 
-			//paddle ai movement
-			move_paddle_ai();
+                draw_menu();
+                break;
 
-			/* Move the balls for the next frame. */
-			move_ball();
-			
-			//draw net
-			draw_net();
+            case 1:
 
-			//draw paddles
-			draw_paddle();
-			
-			/* Put the ball on the screen. */
-			draw_ball();
-	
-			//draw the score
-			draw_player_0_score();
-	
-			//draw the score
-			draw_player_1_score();
-		}
+                if (game_mode == 2) {
+                    if (r == 1) {
+						
+                        // AI win
+                        draw_game_over(3);
+
+                    } else {
+
+                        // Player win
+                        draw_game_over(r);
+                    }
+                } else if (game_mode == 3 || game_mode == 4) {
+                    if (r == 1) {
+
+                        // 1 player win
+                        draw_game_over(1);
+
+                    } else {
+
+                        // 2 player win
+                        draw_game_over(2);
+                    }
+                }
+                break;
+
+
+            case 2:
+
+                if (keystate[SDLK_DOWN] || keystate[SDLK_w]) {
+                    move_paddle_r(0);
+                }
+
+                if (keystate[SDLK_UP] || keystate[SDLK_s]) {
+                    move_paddle_r(1);
+                }
+
+                r = check_score();
+
+                if (r == 1) {
+					
+                    state = 1;
+                    
+                } else if (r == 2) {
+
+                    state = 1;
+                }
+
+                //paddle ai movement
+                move_paddle_ai();
+
+                /* Move the balls for the next frame. */
+                move_ball();
+
+                //draw net
+                draw_net();
+
+                //draw paddles
+                draw_paddle();
+
+                /* Put the ball on the screen. */
+                draw_ball();
+
+                //draw the score
+                draw_player_0_score();
+
+                //draw the score
+                draw_player_1_score();
+                break;
+
+            case 3:
+
+                if (keystate[SDLK_DOWN]) {
+                    move_paddle_r(0);
+                }
+
+                if (keystate[SDLK_UP]) {
+                    move_paddle_r(1);
+                }
+
+                if (keystate[SDLK_s]) {
+                    move_paddle_l(0);
+                }
+
+                if (keystate[SDLK_w]) {
+                    move_paddle_l(1);
+                }
+
+                r = check_score();
+
+                if (r == 1) {
+
+                    state = 1;
+
+                } else if (r == 2) {
+
+                    state = 1;
+                }
+
+                /* Move the balls for the next frame. */
+                move_ball();
+
+                //draw net
+                draw_net();
+
+                //draw paddles
+                draw_paddle();
+
+                /* Put the ball on the screen. */
+                draw_ball();
+
+                //draw the score
+                draw_player_0_score();
+
+                //draw the score
+                draw_player_1_score();
+                break;
+        }
 
 		/* Ask SDL to update the entire screen. */
 		SDL_Flip(screen);
@@ -711,9 +814,10 @@ int main() {
 		sleep = next_game_tick - SDL_GetTicks();
 	
 		if( sleep >= 0 ) {
-
-            		SDL_Delay(sleep);
-        	}
+			
+            SDL_Delay(sleep);
+            
+        }
 	}
 	
 	return 0;
