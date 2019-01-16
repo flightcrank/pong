@@ -1,7 +1,15 @@
 
+//Using libs SDL, glibc
+#include <SDL.h>	//SDL version 2.0
 #include <stdlib.h>
 #include <stdio.h>
-#include "SDL/SDL.h"
+
+#define SCREEN_WIDTH 640	//window height
+#define SCREEN_HEIGHT 480	//window width
+
+//function prototypes
+//initilise SDL
+int init(int w, int h, int argc, char *args[]);
 
 typedef struct ball_s {
 
@@ -16,19 +24,26 @@ typedef struct paddle {
 	int w,h;
 } paddle_t;
 
-//asset instances
+// Program globals
 static ball_t ball;
 static paddle_t paddle[2];
 int score[] = {0,0};
+int width, height;		//used if fullscreen
+
+SDL_Window* window = NULL;	//The window we'll be rendering to
+SDL_Renderer *renderer;		//The renderer SDL will use to draw to the screen
 
 //surfaces
 static SDL_Surface *screen;
-static SDL_Surface *numbermap;
 static SDL_Surface *title;
+static SDL_Surface *numbermap;
 static SDL_Surface *end;
 
+//textures
+SDL_Texture *screen_texture;
+
 //inisilise starting position and sizes of game elemements
-static void init_ball() {
+static void init_game() {
 	
 	ball.x = screen->w / 2;
 	ball.y = screen->h / 2;
@@ -128,13 +143,13 @@ static void move_ball() {
 	if (ball.x < 0) {
 		
 		score[1] += 1;
-		init_ball();
+		init_game();
 	}
 
 	if (ball.x > screen->w - 10) { 
 		
 		score[0] += 1;
-		init_ball();
+		init_game();
 	}
 
 	if (ball.y < 0 || ball.y > screen->h - 10) {
@@ -350,6 +365,7 @@ static void draw_game_over(int p) {
 	dest.y = (screen->h / 2) - (75 / 2);
 	dest.w = end->w;
 	dest.h = 75;
+
 	
 	switch (p) {
 	
@@ -362,6 +378,7 @@ static void draw_game_over(int p) {
 		default:
 			SDL_BlitSurface(end, &cpu, screen, &dest);
 	}
+	
 }
 
 static void draw_menu() {
@@ -374,11 +391,11 @@ static void draw_menu() {
 	src.w = title->w;
 	src.h = title->h;
 
-	dest.x = (screen->w / 2) - (title->w / 2);
-	dest.y = (screen->h / 2) - (title->h / 2);
+	dest.x = (screen->w / 2) - (src.w / 2);
+	dest.y = (screen->h / 2) - (src.h / 2);
 	dest.w = title->w;
 	dest.h = title->h;
-	
+
 	SDL_BlitSurface(title, &src, screen, &dest);
 }
 
@@ -393,12 +410,12 @@ static void draw_background() {
 	src.h = screen->h;
 
 	//draw the backgorund
-	int r = SDL_FillRect(screen,&src,0);
+	//int r = SDL_FillRect(screen,&src,0);
 	
-	if (r !=0){
+	//if (r !=0){
 		
-		printf("fill rectangle faliled in func draw_background()");
-	}
+	//	printf("fill rectangle faliled in func draw_background()");
+	//}
 }
 
 static void draw_net() {
@@ -415,16 +432,15 @@ static void draw_net() {
 
 	for(i = 0; i < 15; i++) {
 		
-		r = SDL_FillRect(screen,&net,255);
+		r = SDL_FillRect(screen, &net, 0xffffffff);
 	
 		if (r != 0) { 
 		
-			printf("fill rectangle faliled in func draw_background()");
+			printf("fill rectangle faliled in func draw_net()");
 		}
 
 		net.y = net.y + 30;
 	}
-
 }
 
 static void draw_ball() {
@@ -435,8 +451,8 @@ static void draw_ball() {
 	src.y = ball.y;
 	src.w = ball.w;
 	src.h = ball.h;
-
-	int r = SDL_FillRect(screen,&src,255);
+	
+	int r = SDL_FillRect(screen , &src, 0xffffffff);
 
 	if (r !=0){
 	
@@ -455,8 +471,8 @@ static void draw_paddle() {
 		src.y = paddle[i].y;
 		src.w = paddle[i].w;
 		src.h = paddle[i].h;
-		
-		int r = SDL_FillRect(screen,&src,255);
+	
+		int r = SDL_FillRect(screen, &src, 0xffffffff);
 		
 		if (r !=0){
 		
@@ -511,135 +527,57 @@ static void draw_player_1_score() {
 	SDL_BlitSurface(numbermap, &src, screen, &dest);
 }
 
-int main() {
-	
-	SDL_Surface *temp;
-
-	/* Initialize SDL’s video system and check for errors */
-	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-
-		printf("Unable to initialize SDL: %s\n", SDL_GetError());
-		return 1;
-	}
-	
-	/* Make sure SDL_Quit gets called when the program exits! */
-	atexit(SDL_Quit);
-	
-	/* Attempt to set a 640x480 8 bit color video mode */
-	screen = SDL_SetVideoMode(640, 480, 8,SDL_DOUBLEBUF);
-	
-	if (screen == NULL) {
+int main (int argc, char *args[]) {
 		
-		printf("Unable to set video mode: %s\n", SDL_GetError());
-		return 1;
+	//SDL Window setup
+	if (init(SCREEN_WIDTH, SCREEN_HEIGHT, argc, args) == 1) {
+		
+		return 0;
 	}
-
-	//load the numbermap image strip of 10 number 64px * 64px
-	temp = SDL_LoadBMP("numbermap.bmp");
 	
-	if (temp == NULL) {
+	SDL_GetWindowSize(window, &width, &height);
 	
-		printf("Unable to load numbermap.bmp.\n");
-		return 1;
-	}
-
-	/* Set the numbermaps colorkey. */
-	Uint32 colorkey = SDL_MapRGB(temp->format, 255, 0, 255);
-	SDL_SetColorKey(temp, SDL_SRCCOLORKEY, colorkey);
-	
-	//convert the numbermaps surface to the same type as the screen
-	numbermap = SDL_DisplayFormat(temp);
-	
-	if (numbermap == NULL) {
-	
-		printf("Unable to convert bitmap.\n");
-		return 1;
-	}
-
-	SDL_FreeSurface(temp);
-	
-	//load the numbermap image strip of 10 number 64px * 64px
-	temp = SDL_LoadBMP("title.bmp");
-
-	if (temp == NULL) {
-	
-		printf("Unable to load numbermap.bmp.\n");
-		return 1;
-	}
-
-	/* Set the numbermaps colorkey. */
-	SDL_SetColorKey(temp, SDL_SRCCOLORKEY, colorkey);
-	
-	//convert the numbermaps surface to the same type as the screen
-	title = SDL_DisplayFormat(temp);
-	
-	if (numbermap == NULL) {
-	
-		printf("Unable to convert bitmap.\n");
-		return 1;
-	}
-
-	SDL_FreeSurface(temp);
-
-	//load the numbermap image strip of 10 number 64px * 64px
-	temp = SDL_LoadBMP("gameover.bmp");
-
-	if (temp == NULL) {
-	
-		printf("Unable to load gameover.bmp.\n");
-		return 1;
-	}
-
-	//convert the end surface to the same type as the screen
-	end = SDL_DisplayFormat(temp);
-	
-	if (end == NULL) {
-	
-		printf("Unable to convert bitmap.\n");
-		return 1;
-	}
-
-	SDL_FreeSurface(temp);
-
-	/* Initialize the ball position data. */
-	init_ball();
-
+	int sleep = 0;
 	int quit = 0;
 	int state = 0;
-	Uint8 *keystate = 0;
-	Uint32 next_game_tick = SDL_GetTicks();
-	int sleep = 0;
 	int r = 0;
-
-	/* Animate */
-	while (quit == 0) {
-		
-		/* Update SDL's internal input state information. */
+	Uint32 next_game_tick = SDL_GetTicks();
+	
+	// Initialize the ball position data. 
+	init_game();
+	
+	//render loop
+	while(quit == 0) {
+	
+		//check for new events every frame
 		SDL_PumpEvents();
 
-		/* Grab a snapshot of the keyboard. */
-		keystate = SDL_GetKeyState(NULL);
+		const Uint8 *keystate = SDL_GetKeyboardState(NULL);
 		
-		/* Respond to input. */
-		if (keystate[SDLK_ESCAPE]) {
+		if (keystate[SDL_SCANCODE_ESCAPE]) {
+		
 			quit = 1;
 		}
 		
-		if (keystate[SDLK_DOWN]) {
+		if (keystate[SDL_SCANCODE_DOWN]) {
+			
 			move_paddle(0);
 		}
 
-		if (keystate[SDLK_UP]) {
+		if (keystate[SDL_SCANCODE_UP]) {
+			
 			move_paddle(1);
 		}
 		
-		//draw the background
-		draw_background();
-
+		//draw background
+		SDL_RenderClear(renderer);
+		SDL_FillRect(screen, NULL, 0x000000ff);
+		
 		//display main menu
 		if (state == 0 ) {
 		
-			if (keystate[SDLK_SPACE]) {
+			if (keystate[SDL_SCANCODE_SPACE]) {
+				
 				state = 1;
 			}
 		
@@ -649,7 +587,7 @@ int main() {
 		//display gameover
 		} else if (state == 2) {
 		
-			if (keystate[SDLK_SPACE]) {
+			if (keystate[SDL_SCANCODE_SPACE]) {
 				state = 0;
 				//delay for a little bit so the space bar press dosnt get triggered twice
 				//while the main menu is showing
@@ -668,16 +606,17 @@ int main() {
 			}
 				
 		//display the game
-		} else if (state == 1){
+		} else if (state == 1) {
 			
 			//check score
 			r = check_score();
-			
+		
+			//if either player wins, change to game over state
 			if (r == 1) {
 				
 				state = 2;	
 
-			} else if (r == 2){
+			} else if (r == 2) {
 			
 				state = 2;	
 			}
@@ -685,7 +624,7 @@ int main() {
 			//paddle ai movement
 			move_paddle_ai();
 
-			/* Move the balls for the next frame. */
+			//* Move the balls for the next frame. 
 			move_ball();
 			
 			//draw net
@@ -694,7 +633,7 @@ int main() {
 			//draw paddles
 			draw_paddle();
 			
-			/* Put the ball on the screen. */
+			//* Put the ball on the screen.
 			draw_ball();
 	
 			//draw the score
@@ -703,18 +642,128 @@ int main() {
 			//draw the score
 			draw_player_1_score();
 		}
+	
+		SDL_UpdateTexture(screen_texture, NULL, screen->pixels, screen->w * sizeof (Uint32));
+		SDL_RenderCopy(renderer, screen_texture, NULL, NULL);
 
-		/* Ask SDL to update the entire screen. */
-		SDL_Flip(screen);
-
+		//draw to the display
+		SDL_RenderPresent(renderer);
+				
+		//time it takes to render  frame in milliseconds
 		next_game_tick += 1000 / 60;
 		sleep = next_game_tick - SDL_GetTicks();
 	
 		if( sleep >= 0 ) {
-
-            		SDL_Delay(sleep);
-        	}
+            				
+			SDL_Delay(sleep);
+		}
 	}
+
+	//free loaded images
+	SDL_FreeSurface(screen);
+	SDL_FreeSurface(title);
+	SDL_FreeSurface(numbermap);
+	SDL_FreeSurface(end);
+
+	//free renderer and all textures used with it
+	SDL_DestroyRenderer(renderer);
+	
+	//Destroy window 
+	SDL_DestroyWindow(window);
+
+	//Quit SDL subsystems 
+	SDL_Quit(); 
+	 
+	return 0;
+	
+}
+
+int init(int width, int height, int argc, char *args[]) {
+
+	//Initialize SDL
+	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+
+		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+		
+		return 1;
+	} 
+	
+	int i;
+	
+	for (i = 0; i < argc; i++) {
+		
+		//Create window	
+		if(strcmp(args[i], "-f")) {
+			
+			SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN, &window, &renderer);
+		
+		} else {
+		
+			SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_FULLSCREEN_DESKTOP, &window, &renderer);
+		}
+	}
+
+	if (window == NULL) { 
+		
+		printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
+		
+		return 1;
+	}
+
+	//create the screen sruface where all the elemnts will be drawn onto (ball, paddles, net etc)
+	screen = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
+	
+	if (screen == NULL) {
+		
+		printf("Could not create the screen surfce! SDL_Error: %s\n", SDL_GetError());
+
+		return 1;
+	}
+
+	//create the screen texture to render the screen surface to the actual display
+	screen_texture = SDL_CreateTextureFromSurface(renderer, screen);
+
+	if (screen_texture == NULL) {
+		
+		printf("Could not create the screen_texture! SDL_Error: %s\n", SDL_GetError());
+
+		return 1;
+	}
+
+	//Load the title image
+	title = SDL_LoadBMP("title.bmp");
+
+	if (title == NULL) {
+		
+		printf("Could not Load title image! SDL_Error: %s\n", SDL_GetError());
+
+		return 1;
+	}
+	
+	//Load the numbermap image
+	numbermap = SDL_LoadBMP("numbermap.bmp");
+
+	if (numbermap == NULL) {
+		
+		printf("Could not Load numbermap image! SDL_Error: %s\n", SDL_GetError());
+
+		return 1;
+	}
+	
+	//Load the gameover image
+	end = SDL_LoadBMP("gameover.bmp");
+
+	if (end == NULL) {
+		
+		printf("Could not Load title image! SDL_Error: %s\n", SDL_GetError());
+
+		return 1;
+	}
+	
+	// Set the title colourkey. 
+	Uint32 colorkey = SDL_MapRGB(title->format, 255, 0, 255);
+	SDL_SetColorKey(title, SDL_TRUE, colorkey);
+	SDL_SetColorKey(numbermap, SDL_TRUE, colorkey);
 	
 	return 0;
 }
